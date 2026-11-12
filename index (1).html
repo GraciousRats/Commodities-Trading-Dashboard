@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hard Commodities Trading Desk</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+:root{
+  --color-fg:#1c1c1a;--color-fg-muted:#6b6a65;--color-bg:#faf9f6;--color-panel:#ffffff;--color-border-line:#e4e2dc;
+  --color-ok:#2f7d4f;--color-warn:#b26b00;--color-bad:#c0392b;
+  --font-anthropic-sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-anthropic-serif:Georgia,"Times New Roman",serif;
+  --cds-font-size-caption:12px;--cds-font-size-body:14px;--cds-font-size-heading:17px;--cds-font-size-title:30px;--cds-font-weight-medium:600;
+  --cds-gap-xs:4px;--cds-gap-sm:8px;--cds-gap-md:14px;--cds-gap-lg:20px;--cds-gap-xl:36px;--cds-pad-lg:16px;--cds-radius:10px;
+  --cds-surface-popover:#ffffff;--cds-border:#dcdad3;--cds-shadow-popover:0 4px 14px rgba(0,0,0,.12);--cds-text-secondary:#6b6a65;
+  --cds-chart-grid:#ecebe6;--cds-chart-axis:#cfcdc6;--cds-chart-reference:#55544f;--cds-chart-status-critical:#d64545;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --color-fg:#ecebe6;--color-fg-muted:#a3a29c;--color-bg:#1b1b19;--color-panel:#242422;--color-border-line:#3a3a36;
+    --color-ok:#5cc28a;--color-warn:#e6a23c;--color-bad:#ef6b5e;
+    --cds-surface-popover:#2c2c29;--cds-border:#44443f;--cds-text-secondary:#a3a29c;
+    --cds-chart-grid:#33332f;--cds-chart-axis:#4a4a45;--cds-chart-reference:#c9c8c2;--cds-chart-status-critical:#ef6b5e;
+  }
+}
+body{margin:0;background:var(--color-bg);font-size:var(--cds-font-size-body)}
+.wrap{max-width:1200px;margin:0 auto;padding:28px 20px 48px}
+.cd{color:var(--color-fg);font-family:var(--font-anthropic-sans)}
+.cd h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0}
+.cd-sub{color:var(--color-fg-muted);margin:6px 0 0}
+.cd-badge{display:inline-block;font-size:var(--cds-font-size-caption);padding:2px 8px;border-radius:999px;border:1px solid var(--color-border-line);color:var(--color-fg-muted);margin-top:8px}
+.cd-take{font-size:var(--cds-font-size-heading);line-height:1.45;margin:var(--cds-gap-lg) 0;max-width:58em}
+.cd-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:var(--cds-gap-md)}
+.cd-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0}
+.cd-label{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.cd-big{font-family:var(--font-anthropic-serif);font-weight:400;font-size:2rem;font-variant-numeric:tabular-nums;margin:4px 0}
+.cd-pc .cd-big{font-size:1.6rem}
+.cd-note{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);line-height:1.4}
+.cd-sec{margin-top:var(--cds-gap-xl)}
+.cd-sec h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0 0 4px}
+.cd-sec>p{color:var(--color-fg-muted);margin:0 0 var(--cds-gap-md);max-width:60em}
+.cd-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--cds-gap-md)}
+.cd-prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--cds-gap-md);min-height:160px}
+.cd-chart{position:relative;min-height:220px}
+.cd-tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);box-shadow:var(--cds-shadow-popover);border-radius:var(--cds-radius);padding:6px 8px;font-size:var(--cds-font-size-caption);white-space:nowrap;opacity:0;z-index:5;left:0;top:0;color:var(--color-fg)}
+.cd-tip div+div{color:var(--cds-text-secondary)}
+.cd .tick text{fill:var(--cds-text-secondary);font-size:var(--cds-font-size-caption)}
+.cd .tick line{stroke:var(--cds-chart-grid)}
+.cd-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:4px 0 8px}
+.cd-sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.cd-tw{overflow-x:auto}
+.cd-table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.cd-table th{text-align:left;font-weight:var(--cds-font-weight-medium);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);padding:6px 8px;border-bottom:1px solid var(--color-border-line);white-space:nowrap}
+.cd-table td{padding:8px;border-bottom:1px solid var(--color-border-line);white-space:nowrap}
+.cd-table .num{text-align:right}
+.cd-table tr.tot td{font-weight:var(--cds-font-weight-medium)}
+.cd-pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:var(--cds-font-size-caption);font-weight:var(--cds-font-weight-medium);border:1px solid currentColor}
+.cd-ok{color:var(--color-ok)}.cd-warn{color:var(--color-warn)}.cd-bad{color:var(--color-bad)}
+.cd-seg{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.cd-seg button{font:inherit;font-size:var(--cds-font-size-caption);padding:4px 12px;border-radius:999px;border:1px solid var(--color-border-line);background:var(--color-panel);color:var(--color-fg);cursor:pointer}
+.cd-seg button[aria-pressed=true]{background:var(--color-fg);color:var(--color-bg)}
+.cd details{margin-top:var(--cds-gap-xl);color:var(--color-fg-muted)}
+.cd summary{cursor:pointer;color:var(--color-fg);font-weight:var(--cds-font-weight-medium)}
+.cd dt{color:var(--color-fg);font-weight:var(--cds-font-weight-medium);margin-top:10px}
+.cd dd{margin:2px 0 0}
+.cd-foot{margin-top:var(--cds-gap-xl);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+</style>
+</head>
+<body>
+<div class="wrap cd">
+<header id="top">
+  <h1>Hard Commodities Trading Desk</h1>
+  <p class="cd-sub">Market, margin, risk and credit in one view, ending in a scored queue of deals awaiting a decision.</p>
+  <span class="cd-badge">Illustrative sample data, not live market prices</span>
+</header>
+
+<p class="cd-take" id="takeaway">The book is marked at <b data-draw="k-mtm">—</b>. <b data-draw="t-approve">—</b> of <b data-draw="t-deals">—</b> pending deals clear every desk rule, and the tightest credit line is <b data-draw="t-cp">—</b> at <b data-draw="t-cpu">—</b> used.</p>
+
+<section class="cd-kpis" id="kpis">
+  <div class="cd-card"><div class="cd-label">Book mark-to-market</div><div class="cd-big"><span data-draw="k-mtm">—</span></div><div class="cd-note">Open positions across four commodities, at latest prices</div></div>
+  <div class="cd-card"><div class="cd-label">VaR limit used</div><div class="cd-big"><span data-draw="k-var">—</span></div><div class="cd-note"><span data-draw="k-varabs">—</span> of <span data-draw="k-varlim">—</span> one-day 95% VaR limit</div></div>
+  <div class="cd-card"><div class="cd-label">Gross margin, <span data-draw="k-month">—</span></div><div class="cd-big"><span data-draw="k-margin">—</span></div><div class="cd-note"><span data-draw="k-mchg">—</span> vs previous month</div></div>
+  <div class="cd-card"><div class="cd-label">Hedge ratio</div><div class="cd-big"><span data-draw="k-hedge">—</span></div><div class="cd-note">Share of net physical position, by value, covered by futures and swaps</div></div>
+</section>
+
+<section class="cd-sec" id="market">
+  <h2>Market: 12-month price trend</h2>
+  <p>Latest monthly average price. The change is green when it moves in the book’s favour: rising for a long position, falling for a short one.</p>
+  <div class="cd-prices" data-draw="price-cards">—</div>
+</section>
+
+<section class="cd-sec" id="margin">
+  <h2>Gross margin by month</h2>
+  <p>Trading gross margin in US$ millions, stacked by commodity.</p>
+  <div class="cd-legend"><span><i class="cd-sw" data-i="0"></i>Copper</span><span><i class="cd-sw" data-i="1"></i>Iron ore</span><span><i class="cd-sw" data-i="2"></i>Thermal coal</span><span><i class="cd-sw" data-i="3"></i>Platinum</span></div>
+  <div class="cd-chart" data-draw="margin-chart" style="min-height:260px">—</div>
+</section>
+
+<section class="cd-sec" id="risk">
+  <h2>Risk and credit limits</h2>
+  <p>Bars turn red at <span data-draw="alert">—</span> of limit. The solid line is the limit itself.</p>
+  <div class="cd-grid2">
+    <div class="cd-card"><div class="cd-label">VaR used, by commodity</div><div class="cd-chart" data-draw="var-chart">—</div></div>
+    <div class="cd-card"><div class="cd-label">Credit line used, by counterparty</div><div class="cd-chart" data-draw="credit-chart">—</div></div>
+  </div>
+</section>
+
+<section class="cd-sec" id="positions">
+  <h2>Positions and hedging</h2>
+  <p>Unhedged exposure is the open position not covered by hedges, valued at the latest price. Negative means short.</p>
+  <div class="cd-tw"><table class="cd-table"><thead><tr><th>Commodity</th><th class="num">Net physical</th><th class="num">Hedged</th><th class="num">Hedge ratio</th><th class="num">Unhedged exposure</th><th class="num">MTM</th><th class="num">VaR</th><th class="num">VaR limit</th><th class="num">VaR used</th></tr></thead><tbody data-draw="pos-rows"></tbody></table></div>
+</section>
+
+<section class="cd-sec" id="stress">
+  <h2>Stress test: P&amp;L if prices move</h2>
+  <p>Change in value of the unhedged exposure, in US$ millions, for an instant price move of each size.</p>
+  <div class="cd-tw"><table class="cd-table"><thead><tr><th>Commodity</th><th class="num">Price −10%</th><th class="num">−5%</th><th class="num">+5%</th><th class="num">+10%</th></tr></thead><tbody data-draw="stress-rows"></tbody></table></div>
+</section>
+
+<section class="cd-sec" id="deals">
+  <h2>Decision queue: pending deals</h2>
+  <p>Each deal is scored on three desk rules. <b>Approve</b> when margin is at least <span data-draw="hurdle">—</span>, the buyer is investment grade and the credit line keeps at least <span data-draw="buffer">—</span> headroom after the deal. <b>Review</b> when any of those fail. <b>Decline</b> when margin is under <span data-draw="floor">—</span> or the deal would breach the credit limit.</p>
+  <div class="cd-seg" id="deal-filter" role="group" aria-label="Filter deals by recommendation">
+    <button data-f="All" aria-pressed="true">All <span data-draw="c-all">—</span></button>
+    <button data-f="Approve" aria-pressed="false">Approve <span data-draw="c-approve">—</span></button>
+    <button data-f="Review" aria-pressed="false">Review <span data-draw="c-review">—</span></button>
+    <button data-f="Decline" aria-pressed="false">Decline <span data-draw="c-decline">—</span></button>
+  </div>
+  <div class="cd-tw"><table class="cd-table"><thead><tr><th>Deal</th><th>Counterparty</th><th>Commodity</th><th>Side</th><th class="num">Volume</th><th class="num">Price</th><th class="num">Margin</th><th class="num">Tenor</th><th class="num">Notional</th><th class="num">Credit headroom after</th><th>Recommendation</th><th>Why</th></tr></thead><tbody data-draw="deal-rows"></tbody></table></div>
+</section>
+
+<details id="notes"><summary>Definitions and data notes</summary><dl>
+  <dt>Mark-to-market (MTM)</dt><dd>Profit or loss on open positions if they were closed at today’s prices.</dd>
+  <dt>Value at Risk (VaR)</dt><dd>The loss the book should not exceed on 95% of trading days. Each commodity has its own VaR limit.</dd>
+  <dt>Hedge ratio</dt><dd>Hedged position divided by net physical position. The headline figure weights each commodity by its value.</dd>
+  <dt>Credit headroom</dt><dd>Credit limit minus what the counterparty already owes, minus the new deal’s notional. Each deal is scored on its own, as if the others were not done.</dd>
+  <dt>About the data</dt><dd>All prices, positions, counterparties and deals are invented for demonstration. Counterparty names are fictional. The raw data is in the <code>data/</code> folder of this repository.</dd>
+</dl></details>
+<p class="cd-foot">Built with HTML, CSS, JavaScript and D3.js.</p>
+</div>
+
+<!-- Data: the same rows as the CSV files in /data, embedded so the page works offline -->
+<script>
+window.DATA = {"prices":[{"month":"2025-12","commodity":"Copper","unit":"USD/t","price":"10900.0"},{"month":"2026-01","commodity":"Copper","unit":"USD/t","price":"11078.0"},{"month":"2026-02","commodity":"Copper","unit":"USD/t","price":"11032.0"},{"month":"2026-03","commodity":"Copper","unit":"USD/t","price":"11102.0"},{"month":"2026-04","commodity":"Copper","unit":"USD/t","price":"11078.0"},{"month":"2026-05","commodity":"Copper","unit":"USD/t","price":"11293.0"},{"month":"2026-06","commodity":"Copper","unit":"USD/t","price":"11618.0"},{"month":"2026-07","commodity":"Copper","unit":"USD/t","price":"11581.0"},{"month":"2026-08","commodity":"Copper","unit":"USD/t","price":"11778.0"},{"month":"2026-09","commodity":"Copper","unit":"USD/t","price":"11722.0"},{"month":"2026-10","commodity":"Copper","unit":"USD/t","price":"11835.0"},{"month":"2026-11","commodity":"Copper","unit":"USD/t","price":"11850.0"},{"month":"2025-12","commodity":"Iron ore","unit":"USD/t","price":"105.0"},{"month":"2026-01","commodity":"Iron ore","unit":"USD/t","price":"106.5"},{"month":"2026-02","commodity":"Iron ore","unit":"USD/t","price":"104.9"},{"month":"2026-03","commodity":"Iron ore","unit":"USD/t","price":"104.2"},{"month":"2026-04","commodity":"Iron ore","unit":"USD/t","price":"98.0"},{"month":"2026-05","commodity":"Iron ore","unit":"USD/t","price":"97.2"},{"month":"2026-06","commodity":"Iron ore","unit":"USD/t","price":"98.7"},{"month":"2026-07","commodity":"Iron ore","unit":"USD/t","price":"99.1"},{"month":"2026-08","commodity":"Iron ore","unit":"USD/t","price":"100.3"},{"month":"2026-09","commodity":"Iron ore","unit":"USD/t","price":"98.7"},{"month":"2026-10","commodity":"Iron ore","unit":"USD/t","price":"99.5"},{"month":"2026-11","commodity":"Iron ore","unit":"USD/t","price":"97.5"},{"month":"2025-12","commodity":"Thermal coal","unit":"USD/t","price":"92.0"},{"month":"2026-01","commodity":"Thermal coal","unit":"USD/t","price":"92.8"},{"month":"2026-02","commodity":"Thermal coal","unit":"USD/t","price":"89.3"},{"month":"2026-03","commodity":"Thermal coal","unit":"USD/t","price":"96.1"},{"month":"2026-04","commodity":"Thermal coal","unit":"USD/t","price":"92.2"},{"month":"2026-05","commodity":"Thermal coal","unit":"USD/t","price":"93.8"},{"month":"2026-06","commodity":"Thermal coal","unit":"USD/t","price":"88.0"},{"month":"2026-07","commodity":"Thermal coal","unit":"USD/t","price":"87.2"},{"month":"2026-08","commodity":"Thermal coal","unit":"USD/t","price":"88.1"},{"month":"2026-09","commodity":"Thermal coal","unit":"USD/t","price":"88.4"},{"month":"2026-10","commodity":"Thermal coal","unit":"USD/t","price":"90.3"},{"month":"2026-11","commodity":"Thermal coal","unit":"USD/t","price":"88.0"},{"month":"2025-12","commodity":"Platinum","unit":"USD/oz","price":"1540.0"},{"month":"2026-01","commodity":"Platinum","unit":"USD/oz","price":"1517.0"},{"month":"2026-02","commodity":"Platinum","unit":"USD/oz","price":"1544.0"},{"month":"2026-03","commodity":"Platinum","unit":"USD/oz","price":"1615.0"},{"month":"2026-04","commodity":"Platinum","unit":"USD/oz","price":"1555.0"},{"month":"2026-05","commodity":"Platinum","unit":"USD/oz","price":"1603.0"},{"month":"2026-06","commodity":"Platinum","unit":"USD/oz","price":"1620.0"},{"month":"2026-07","commodity":"Platinum","unit":"USD/oz","price":"1564.0"},{"month":"2026-08","commodity":"Platinum","unit":"USD/oz","price":"1629.0"},{"month":"2026-09","commodity":"Platinum","unit":"USD/oz","price":"1684.0"},{"month":"2026-10","commodity":"Platinum","unit":"USD/oz","price":"1579.0"},{"month":"2026-11","commodity":"Platinum","unit":"USD/oz","price":"1660.0"}],"margins":[{"month":"2025-12","commodity":"Copper","revenue_usd_m":"68.5","gross_margin_usd_m":"1.66"},{"month":"2025-12","commodity":"Iron ore","revenue_usd_m":"57.3","gross_margin_usd_m":"1.08"},{"month":"2025-12","commodity":"Thermal coal","revenue_usd_m":"29.9","gross_margin_usd_m":"1.27"},{"month":"2025-12","commodity":"Platinum","revenue_usd_m":"23.5","gross_margin_usd_m":"0.89"},{"month":"2026-01","commodity":"Copper","revenue_usd_m":"53.6","gross_margin_usd_m":"2.09"},{"month":"2026-01","commodity":"Iron ore","revenue_usd_m":"53.6","gross_margin_usd_m":"1.46"},{"month":"2026-01","commodity":"Thermal coal","revenue_usd_m":"34.7","gross_margin_usd_m":"0.98"},{"month":"2026-01","commodity":"Platinum","revenue_usd_m":"28.4","gross_margin_usd_m":"0.95"},{"month":"2026-02","commodity":"Copper","revenue_usd_m":"65.3","gross_margin_usd_m":"1.85"},{"month":"2026-02","commodity":"Iron ore","revenue_usd_m":"54.9","gross_margin_usd_m":"1.77"},{"month":"2026-02","commodity":"Thermal coal","revenue_usd_m":"30.5","gross_margin_usd_m":"1.21"},{"month":"2026-02","commodity":"Platinum","revenue_usd_m":"22.7","gross_margin_usd_m":"1.01"},{"month":"2026-03","commodity":"Copper","revenue_usd_m":"66.7","gross_margin_usd_m":"2.46"},{"month":"2026-03","commodity":"Iron ore","revenue_usd_m":"54.6","gross_margin_usd_m":"1.22"},{"month":"2026-03","commodity":"Thermal coal","revenue_usd_m":"29.6","gross_margin_usd_m":"1.21"},{"month":"2026-03","commodity":"Platinum","revenue_usd_m":"22.3","gross_margin_usd_m":"0.88"},{"month":"2026-04","commodity":"Copper","revenue_usd_m":"56.3","gross_margin_usd_m":"1.46"},{"month":"2026-04","commodity":"Iron ore","revenue_usd_m":"41.8","gross_margin_usd_m":"1.63"},{"month":"2026-04","commodity":"Thermal coal","revenue_usd_m":"26.9","gross_margin_usd_m":"0.93"},{"month":"2026-04","commodity":"Platinum","revenue_usd_m":"25.7","gross_margin_usd_m":"1.1"},{"month":"2026-05","commodity":"Copper","revenue_usd_m":"54.4","gross_margin_usd_m":"1.84"},{"month":"2026-05","commodity":"Iron ore","revenue_usd_m":"50.0","gross_margin_usd_m":"1.72"},{"month":"2026-05","commodity":"Thermal coal","revenue_usd_m":"34.1","gross_margin_usd_m":"1.34"},{"month":"2026-05","commodity":"Platinum","revenue_usd_m":"24.6","gross_margin_usd_m":"0.85"},{"month":"2026-06","commodity":"Copper","revenue_usd_m":"60.5","gross_margin_usd_m":"2.34"},{"month":"2026-06","commodity":"Iron ore","revenue_usd_m":"56.9","gross_margin_usd_m":"1.11"},{"month":"2026-06","commodity":"Thermal coal","revenue_usd_m":"27.4","gross_margin_usd_m":"0.92"},{"month":"2026-06","commodity":"Platinum","revenue_usd_m":"24.2","gross_margin_usd_m":"0.89"},{"month":"2026-07","commodity":"Copper","revenue_usd_m":"65.5","gross_margin_usd_m":"1.63"},{"month":"2026-07","commodity":"Iron ore","revenue_usd_m":"40.9","gross_margin_usd_m":"1.33"},{"month":"2026-07","commodity":"Thermal coal","revenue_usd_m":"29.4","gross_margin_usd_m":"1.14"},{"month":"2026-07","commodity":"Platinum","revenue_usd_m":"30.8","gross_margin_usd_m":"1.0"},{"month":"2026-08","commodity":"Copper","revenue_usd_m":"63.9","gross_margin_usd_m":"2.03"},{"month":"2026-08","commodity":"Iron ore","revenue_usd_m":"52.2","gross_margin_usd_m":"1.03"},{"month":"2026-08","commodity":"Thermal coal","revenue_usd_m":"34.9","gross_margin_usd_m":"1.28"},{"month":"2026-08","commodity":"Platinum","revenue_usd_m":"30.1","gross_margin_usd_m":"1.06"},{"month":"2026-09","commodity":"Copper","revenue_usd_m":"61.2","gross_margin_usd_m":"1.78"},{"month":"2026-09","commodity":"Iron ore","revenue_usd_m":"42.5","gross_margin_usd_m":"1.51"},{"month":"2026-09","commodity":"Thermal coal","revenue_usd_m":"26.2","gross_margin_usd_m":"0.81"},{"month":"2026-09","commodity":"Platinum","revenue_usd_m":"24.0","gross_margin_usd_m":"0.72"},{"month":"2026-10","commodity":"Copper","revenue_usd_m":"60.1","gross_margin_usd_m":"1.39"},{"month":"2026-10","commodity":"Iron ore","revenue_usd_m":"40.8","gross_margin_usd_m":"1.11"},{"month":"2026-10","commodity":"Thermal coal","revenue_usd_m":"26.6","gross_margin_usd_m":"1.01"},{"month":"2026-10","commodity":"Platinum","revenue_usd_m":"22.3","gross_margin_usd_m":"1.1"},{"month":"2026-11","commodity":"Copper","revenue_usd_m":"66.0","gross_margin_usd_m":"1.5"},{"month":"2026-11","commodity":"Iron ore","revenue_usd_m":"45.0","gross_margin_usd_m":"1.27"},{"month":"2026-11","commodity":"Thermal coal","revenue_usd_m":"29.3","gross_margin_usd_m":"0.85"},{"month":"2026-11","commodity":"Platinum","revenue_usd_m":"29.8","gross_margin_usd_m":"1.17"}],"book":[{"commodity":"Copper","unit":"kt","net_position":"18","hedged_position":"14","mtm_usd_m":"4.6","var_usd_m":"1.9","var_limit_usd_m":"2.5"},{"commodity":"Iron ore","unit":"kt","net_position":"1200","hedged_position":"800","mtm_usd_m":"2.1","var_usd_m":"1.6","var_limit_usd_m":"2.0"},{"commodity":"Thermal coal","unit":"kt","net_position":"-450","hedged_position":"-300","mtm_usd_m":"-0.8","var_usd_m":"0.9","var_limit_usd_m":"1.5"},{"commodity":"Platinum","unit":"koz","net_position":"40","hedged_position":"22","mtm_usd_m":"1.7","var_usd_m":"1.4","var_limit_usd_m":"1.5"}],"counterparties":[{"counterparty":"Harbourline Metals AG","country":"Switzerland","rating":"A-","limit_usd_m":"60","utilised_usd_m":"38"},{"counterparty":"Kestrel Steel Co.","country":"China","rating":"BBB","limit_usd_m":"45","utilised_usd_m":"39.5"},{"counterparty":"Umhlanga Power Ltd","country":"South Africa","rating":"BBB-","limit_usd_m":"30","utilised_usd_m":"17"},{"counterparty":"Nordvik Smelting AS","country":"Norway","rating":"A","limit_usd_m":"40","utilised_usd_m":"12"},{"counterparty":"Coromandel Energy Pvt","country":"India","rating":"BB+","limit_usd_m":"25","utilised_usd_m":"21"},{"counterparty":"Sable Refining PLC","country":"United Kingdom","rating":"BBB+","limit_usd_m":"35","utilised_usd_m":"22"}],"trades":[{"deal_id":"D-2411","counterparty":"Harbourline Metals AG","commodity":"Copper","direction":"Sell","volume":"1.2","unit":"kt","price":"11920","margin_pct":"3.1","tenor_days":"60","notional_usd_m":"14.3"},{"deal_id":"D-2412","counterparty":"Kestrel Steel Co.","commodity":"Iron ore","direction":"Sell","volume":"80","unit":"kt","price":"99.0","margin_pct":"2.8","tenor_days":"45","notional_usd_m":"7.9"},{"deal_id":"D-2413","counterparty":"Umhlanga Power Ltd","commodity":"Thermal coal","direction":"Buy","volume":"120","unit":"kt","price":"86.5","margin_pct":"2.2","tenor_days":"30","notional_usd_m":"10.4"},{"deal_id":"D-2414","counterparty":"Nordvik Smelting AS","commodity":"Copper","direction":"Sell","volume":"0.9","unit":"kt","price":"11880","margin_pct":"2.9","tenor_days":"90","notional_usd_m":"10.7"},{"deal_id":"D-2415","counterparty":"Coromandel Energy Pvt","commodity":"Thermal coal","direction":"Sell","volume":"75","unit":"kt","price":"91.0","margin_pct":"3.6","tenor_days":"60","notional_usd_m":"6.8"},{"deal_id":"D-2416","counterparty":"Sable Refining PLC","commodity":"Platinum","direction":"Sell","volume":"4","unit":"koz","price":"1675","margin_pct":"1.3","tenor_days":"30","notional_usd_m":"6.7"},{"deal_id":"D-2417","counterparty":"Harbourline Metals AG","commodity":"Iron ore","direction":"Sell","volume":"150","unit":"kt","price":"98.0","margin_pct":"2.6","tenor_days":"75","notional_usd_m":"14.7"},{"deal_id":"D-2418","counterparty":"Sable Refining PLC","commodity":"Platinum","direction":"Buy","volume":"3","unit":"koz","price":"1640","margin_pct":"2.7","tenor_days":"45","notional_usd_m":"4.9"}]};
+</script>
+
+<!-- Tiny runtime: datasets, calculated values and drawings -->
+<script>
+(function () {
+  var calcs = {}, draws = {}, cache = {};
+  window.dash = {
+    colors: ['#3b6fb6', '#d4922a', '#3f9e6a', '#8a5cc2'],
+    calc: function (id, o) { calcs[id] = o; },
+    data: function (id) {
+      if (window.DATA[id]) return { status: 'ok', data: window.DATA[id] };
+      if (calcs[id]) {
+        if (!(id in cache)) {
+          var args = calcs[id].inputs.map(function (i) { return dash.data(i).data; });
+          cache[id] = calcs[id].fn.apply(null, args);
+        }
+        return { status: 'ok', data: cache[id] };
+      }
+      return { status: 'missing', data: [] };
+    },
+    draw: function (name, fn) {
+      if (fn) { draws[name] = fn; return; }
+      run(name);
+    }
+  };
+  function run(name) {
+    document.querySelectorAll('[data-draw="' + name + '"]').forEach(function (el) { draws[name](el); });
+  }
+  window.dashRunAll = function () { Object.keys(draws).forEach(run); };
+})();
+</script>
+
+<!-- Settings, helpers and calculations -->
+<script>
+window.DESK = { hurdle: 2.5, floor: 1.5, buffer: 0.10, alert: 85 };   // desk rules: margin hurdle %, margin floor %, credit buffer, alert %
+window.COMMS = ['Copper', 'Iron ore', 'Thermal coal', 'Platinum'];
+
+window.fm = function (v, d) { if (v == null || isNaN(v)) return '—'; d = d == null ? 1 : d; return (v < 0 ? '-$' : '$') + Math.abs(v).toFixed(d) + 'm'; };
+window.fp = function (v) { return v == null || isNaN(v) ? '—' : (+v).toFixed(1) + '%'; };
+window.fs = function (v) { return v == null || isNaN(v) ? '—' : (v > 0 ? '+' : '') + (+v).toFixed(1) + '%'; };
+window.fn0 = function (v) { return d3.format(',')(+v); };
+window.mlab = function (m, f) { return d3.utcFormat(f || '%b %y')(new Date(m + '-01T00:00:00Z')); };
+window.tipLines = function (tip, lines) { tip.selectAll('div').data(lines).join('div').text(function (d) { return d; }); };
+window.placeTip = function (tip, el, ev) {
+  var p = d3.pointer(ev, el), w = tip.node().offsetWidth;
+  tip.style('opacity', 1).style('left', Math.max(0, Math.min(p[0] + 12, el.clientWidth - w - 4)) + 'px').style('top', Math.max(0, p[1] - 48) + 'px');
+};
+
+// 12-month price change per commodity
+dash.calc('price_summary', { inputs: ['prices'], fn: (prices) => d3.groups(prices, p => p.commodity).map(([commodity, rows]) => {
+  rows = rows.slice().sort((a, b) => a.month < b.month ? -1 : 1);
+  const first = +rows[0].price, last = +rows[rows.length - 1].price;
+  return { commodity, unit: rows[0].unit, first, last, change_pct: Math.round((last / first - 1) * 1000) / 10 };
+}) });
+
+// Hedge ratio, unhedged exposure (US$m) and VaR use per commodity
+dash.calc('exposure', { inputs: ['book', 'price_summary'], fn: (book, price_summary) => {
+  const r1 = v => Math.round(v * 10) / 10;
+  const px = new Map(price_summary.map(p => [p.commodity, p.last]));
+  return book.map(b => {
+    const net = +b.net_position, hedged = +b.hedged_position, price = px.get(b.commodity) || 0;
+    return {
+      commodity: b.commodity,
+      hedge_ratio_pct: r1(hedged / net * 100),
+      net_value_usd_m: r1(Math.abs(net) * price / 1000),
+      hedged_value_usd_m: r1(Math.abs(hedged) * price / 1000),
+      exposure_usd_m: r1((net - hedged) * price / 1000),
+      var_util_pct: r1(+b.var_usd_m / +b.var_limit_usd_m * 100)
+    };
+  });
+} });
+
+// Headline figures
+dash.calc('kpis', { inputs: ['book', 'margins', 'exposure'], fn: (book, margins, exposure) => {
+  const r1 = v => Math.round(v * 10) / 10;
+  const mtm = d3.sum(book, b => +b.mtm_usd_m), varTotal = d3.sum(book, b => +b.var_usd_m), limit = d3.sum(book, b => +b.var_limit_usd_m);
+  const byMonth = d3.rollups(margins, g => d3.sum(g, m => +m.gross_margin_usd_m), m => m.month).sort((a, b) => a[0] < b[0] ? -1 : 1);
+  const last = byMonth[byMonth.length - 1], prev = byMonth[byMonth.length - 2];
+  const hedge = d3.sum(exposure, e => e.hedged_value_usd_m) / d3.sum(exposure, e => e.net_value_usd_m) * 100;
+  return [{ total_mtm: r1(mtm), total_var: r1(varTotal), total_var_limit: r1(limit), var_util_pct: r1(varTotal / limit * 100),
+    last_month: last[0], last_margin: r1(last[1]), margin_change_pct: r1((last[1] / prev[1] - 1) * 100), hedge_ratio_pct: r1(hedge) }];
+} });
+
+// Monthly totals across commodities
+dash.calc('margin_month', { inputs: ['margins'], fn: (margins) => d3.rollups(margins,
+  g => ({ rev: d3.sum(g, m => +m.revenue_usd_m), gm: d3.sum(g, m => +m.gross_margin_usd_m) }), m => m.month)
+  .sort((a, b) => a[0] < b[0] ? -1 : 1)
+  .map(([month, s]) => ({ month, revenue_usd_m: Math.round(s.rev * 10) / 10, gross_margin_usd_m: Math.round(s.gm * 100) / 100, margin_pct: Math.round(s.gm / s.rev * 1000) / 10 })) });
+
+// Credit line use, highest first
+dash.calc('credit', { inputs: ['counterparties'], fn: (counterparties) => counterparties.map(c => ({
+  counterparty: c.counterparty, rating: c.rating,
+  util_pct: Math.round(+c.utilised_usd_m / +c.limit_usd_m * 1000) / 10,
+  headroom_usd_m: Math.round((+c.limit_usd_m - +c.utilised_usd_m) * 10) / 10
+})).sort((a, b) => b.util_pct - a.util_pct) });
+
+// Stress test: P&L on unhedged exposure for instant price moves
+dash.calc('stress', { inputs: ['exposure'], fn: (exposure) => {
+  const r2 = v => Math.round(v * 100) / 100;
+  const rows = exposure.map(e => ({ commodity: e.commodity, s_m10: r2(-e.exposure_usd_m * 0.10), s_m5: r2(-e.exposure_usd_m * 0.05), s_p5: r2(e.exposure_usd_m * 0.05), s_p10: r2(e.exposure_usd_m * 0.10) }));
+  const total = { commodity: 'Total' };
+  ['s_m10', 's_m5', 's_p5', 's_p10'].forEach(k => { total[k] = r2(d3.sum(rows, r => r[k])); });
+  return rows.concat([total]);
+} });
+
+// Deal scoring: Approve / Review / Decline
+dash.calc('deal_scores', { inputs: ['trades', 'counterparties'], fn: (trades, counterparties) => {
+  const rules = window.DESK;
+  const lines = new Map(counterparties.map(c => [c.counterparty, c]));
+  return trades.map(t => {
+    const c = lines.get(t.counterparty) || {};
+    const limit = +c.limit_usd_m, used = +c.utilised_usd_m, notional = +t.notional_usd_m, margin = +t.margin_pct;
+    const headroom = Math.round((limit - used - notional) * 10) / 10;
+    const investmentGrade = /^(A|BBB)/.test(c.rating || '');
+    const reasons = [];
+    let rec = 'Approve';
+    if (headroom < 0) { rec = 'Decline'; reasons.push('Breaches credit limit'); }
+    if (margin < rules.floor) { rec = 'Decline'; reasons.push('Margin below floor'); }
+    if (rec !== 'Decline') {
+      if (margin < rules.hurdle) reasons.push('Margin below hurdle');
+      if (!investmentGrade) reasons.push('Sub-investment-grade');
+      if (headroom < limit * rules.buffer) reasons.push('Thin credit headroom');
+      if (reasons.length) rec = 'Review';
+    }
+    return { deal_id: t.deal_id, headroom_after_usd_m: headroom, recommendation: rec, reason: reasons.join('; ') || 'Meets all desk rules' };
+  });
+} });
+
+dash.calc('decision_counts', { inputs: ['deal_scores'], fn: (deal_scores) => {
+  const n = k => deal_scores.filter(d => d.recommendation === k).length;
+  return [{ total: deal_scores.length, approve: n('Approve'), review: n('Review'), decline: n('Decline') }];
+} });
+</script>
+
+<!-- Single values, desk-rule labels, legend and deal filter -->
+<script>
+function val(name, src, field, f, cls) {
+  dash.draw(name, function (el) {
+    var d = dash.data(src), r = d.data && d.data[0];
+    if (d.status !== 'ok' || !r) { el.textContent = '—'; el.className = ''; return; }
+    el.textContent = f(r[field]);
+    el.className = cls ? cls(r[field]) : '';
+  });
+}
+val('k-mtm', 'kpis', 'total_mtm', fm);
+val('k-var', 'kpis', 'var_util_pct', fp, function (v) { return v >= DESK.alert ? 'cd-warn' : ''; });
+val('k-varabs', 'kpis', 'total_var', fm);
+val('k-varlim', 'kpis', 'total_var_limit', fm);
+val('k-month', 'kpis', 'last_month', function (v) { return mlab(v, '%B %Y'); });
+val('k-margin', 'kpis', 'last_margin', fm);
+val('k-mchg', 'kpis', 'margin_change_pct', fs, function (v) { return v >= 0 ? 'cd-ok' : 'cd-bad'; });
+val('k-hedge', 'kpis', 'hedge_ratio_pct', fp);
+val('t-approve', 'decision_counts', 'approve', String);
+val('t-deals', 'decision_counts', 'total', String);
+val('t-cp', 'credit', 'counterparty', String);
+val('t-cpu', 'credit', 'util_pct', fp);
+val('c-all', 'decision_counts', 'total', String);
+val('c-approve', 'decision_counts', 'approve', String);
+val('c-review', 'decision_counts', 'review', String);
+val('c-decline', 'decision_counts', 'decline', String);
+
+dash.draw('hurdle', function (el) { el.textContent = DESK.hurdle.toFixed(1) + '%'; });
+dash.draw('floor', function (el) { el.textContent = DESK.floor.toFixed(1) + '%'; });
+dash.draw('buffer', function (el) { el.textContent = Math.round(DESK.buffer * 100) + '% of the limit'; });
+dash.draw('alert', function (el) { el.textContent = DESK.alert + '%'; });
+
+document.querySelectorAll('.cd-sw').forEach(function (s) { s.style.background = dash.colors[+s.getAttribute('data-i')]; });
+
+window.DEAL_FILTER = 'All';
+var segs = document.querySelectorAll('#deal-filter button');
+segs.forEach(function (b) {
+  b.addEventListener('click', function () {
+    window.DEAL_FILTER = b.getAttribute('data-f');
+    segs.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    dash.draw('deal-rows');
+  });
+});
+</script>
+
+<!-- Charts and tables -->
+<script>
+function hbar(el, rows, o) {
+  el.replaceChildren();
+  var W = el.clientWidth || 320, rowH = 32, top = 6, bottom = 24, inner = rows.length * rowH;
+  var svg = d3.select(el).append('svg').attr('width', W).attr('height', top + inner + bottom).attr('role', 'img').attr('aria-label', o.aria);
+  var tmp = svg.append('g').attr('class', 'tick'), lw = 0;
+  rows.forEach(function (r) { var t = tmp.append('text').text(r.label); lw = Math.max(lw, t.node().getComputedTextLength()); });
+  tmp.remove();
+  var left = Math.min(lw + 10, W * 0.45), right = 50;
+  var x = d3.scaleLinear().domain([0, o.max]).range([left, W - right]);
+  var y = d3.scaleBand().domain(rows.map(function (r) { return r.label; })).range([top, top + inner]).padding(0.32);
+  svg.append('g').attr('transform', 'translate(0,' + (top + inner) + ')')
+    .call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((W - left - right) / 70))).tickFormat(function (d) { return d + '%'; }).tickSize(-inner))
+    .call(function (g) { g.select('.domain').remove(); });
+  svg.append('g').attr('transform', 'translate(' + left + ',0)').call(d3.axisLeft(y).tickSize(0).tickPadding(8)).call(function (g) { g.select('.domain').remove(); });
+  (o.refs || []).forEach(function (rf) {
+    svg.append('line').attr('x1', x(rf.v)).attr('x2', x(rf.v)).attr('y1', top - 4).attr('y2', top + inner)
+      .style('stroke', 'var(--cds-chart-reference)').style('stroke-width', 1.5).style('stroke-dasharray', rf.dash ? '4 3' : null);
+  });
+  var tip = d3.select(el).append('div').attr('class', 'cd-tip');
+  svg.selectAll('rect.b').data(rows).join('rect').attr('class', 'b').attr('x', left).attr('y', function (r) { return y(r.label); })
+    .attr('height', y.bandwidth()).attr('rx', 2).attr('width', function (r) { return Math.max(0, x(Math.min(r.value, o.max)) - left); })
+    .style('fill', function (r) { return r.crit ? 'var(--cds-chart-status-critical)' : dash.colors[0]; })
+    .on('pointermove', function (ev, r) { tipLines(tip, r.tip); placeTip(tip, el, ev); })
+    .on('pointerleave', function () { tip.style('opacity', 0); });
+  svg.selectAll('text.v').data(rows).join('text').attr('class', 'v')
+    .attr('x', function (r) { return x(Math.min(r.value, o.max)) + 6; }).attr('y', function (r) { return y(r.label) + y.bandwidth() / 2; }).attr('dy', '0.35em')
+    .style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg)').style('font-variant-numeric', 'tabular-nums')
+    .text(function (r) { return fp(r.value); });
+}
+
+dash.draw('price-cards', function (el) {
+  var s = dash.data('price_summary'), p = dash.data('prices'), b = dash.data('book');
+  el.replaceChildren();
+  var pos = new Map((b.data || []).map(function (r) { return [r.commodity, +r.net_position]; }));
+  var later = [];
+  COMMS.forEach(function (c) {
+    var r = s.data.find(function (x) { return x.commodity === c; }); if (!r) return;
+    var rows = p.data.filter(function (x) { return x.commodity === c; }).sort(function (a, z) { return a.month < z.month ? -1 : 1; });
+    var card = d3.select(el).append('div').attr('class', 'cd-card cd-pc');
+    card.append('div').attr('class', 'cd-label').text(c + ' · ' + r.unit);
+    card.append('div').attr('class', 'cd-big').text(fn0(r.last));
+    var n = pos.get(c), good = n == null ? null : ((r.change_pct >= 0) === (n >= 0));
+    var note = card.append('div').attr('class', 'cd-note');
+    note.append('span').attr('class', good == null ? '' : (good ? 'cd-ok' : 'cd-bad')).text(fs(r.change_pct));
+    note.append('span').text(' over 12 months' + (n == null ? '' : ' · book is ' + (n >= 0 ? 'long' : 'short')));
+    var box = card.append('div').style('position', 'relative').style('margin-top', '10px').style('height', '44px');
+    later.push(function () {
+    var W = Math.max(100, box.node().clientWidth || 180), H = 44;
+    var x = d3.scaleLinear().domain([0, rows.length - 1]).range([3, W - 3]);
+    var y = d3.scaleLinear().domain(d3.extent(rows, function (d) { return +d.price; })).range([H - 4, 4]);
+    var svg = box.append('svg').attr('width', W).attr('height', H).attr('role', 'img').attr('aria-label', c + ' monthly price trend over 12 months');
+    svg.append('path').datum(rows).attr('fill', 'none').style('stroke', dash.colors[0]).attr('stroke-width', 1.75)
+      .attr('d', d3.line().x(function (d, i) { return x(i); }).y(function (d) { return y(+d.price); }));
+    var dot = svg.append('circle').attr('r', 3.5).style('fill', dash.colors[0]).style('opacity', 0);
+    var tip = box.append('div').attr('class', 'cd-tip');
+    svg.append('rect').attr('width', W).attr('height', H).style('fill', 'transparent')
+      .on('pointermove', function (ev) {
+        var i = Math.round(x.invert(d3.pointer(ev)[0])); i = Math.max(0, Math.min(rows.length - 1, i));
+        var d = rows[i];
+        dot.attr('cx', x(i)).attr('cy', y(+d.price)).style('opacity', 1);
+        tipLines(tip, [mlab(d.month, '%b %Y'), fn0(d.price) + ' ' + d.unit]); placeTip(tip, box.node(), ev);
+      })
+      .on('pointerleave', function () { dot.style('opacity', 0); tip.style('opacity', 0); });
+    });
+  });
+  later.forEach(function (f) { f(); });   // draw sparklines once every card is in place, so widths are right
+});
+
+dash.draw('margin-chart', function (el) {
+  var d = dash.data('margins'), mm = dash.data('margin_month');
+  el.replaceChildren();
+  var months = Array.from(new Set(d.data.map(function (r) { return r.month; }))).sort();
+  var tot = new Map((mm.data || []).map(function (r) { return [r.month, r]; }));
+  var table = months.map(function (m) {
+    var o = { month: m }; COMMS.forEach(function (c) { o[c] = 0; });
+    d.data.forEach(function (r) { if (r.month === m) o[r.commodity] = +r.gross_margin_usd_m; });
+    return o;
+  });
+  var series = d3.stack().keys(COMMS)(table);
+  var W = el.clientWidth || 320, H = 260, mt = 20, mr = 4, mb = 24;
+  var maxY = d3.max(table, function (o) { return d3.sum(COMMS, function (c) { return o[c]; }); });
+  var y = d3.scaleLinear().domain([0, maxY * 1.1]).nice().range([H - mb, mt]);
+  var svg = d3.select(el).append('svg').attr('width', W).attr('height', H).attr('role', 'img')
+    .attr('aria-label', 'Monthly gross margin stacked by commodity, ' + mlab(months[0]) + ' to ' + mlab(months[months.length - 1]));
+  var yAxis = d3.axisLeft(y).ticks(4).tickFormat(function (v) { return '$' + v + 'm'; });
+  var g0 = svg.append('g').call(yAxis), lw = 0;
+  g0.selectAll('text').each(function () { lw = Math.max(lw, this.getComputedTextLength()); });
+  g0.remove();
+  var ml = lw + 12;
+  var x = d3.scaleBand().domain(months).range([ml, W - mr]).padding(0.25);
+  svg.append('g').attr('transform', 'translate(' + ml + ',0)').call(yAxis.tickSize(-(W - ml - mr)))
+    .call(function (g) { g.select('.domain').remove(); g.selectAll('text').attr('x', -8); });
+  var every = Math.max(1, Math.ceil(months.length / Math.max(1, Math.floor((W - ml) / 48))));
+  svg.append('g').attr('transform', 'translate(0,' + (H - mb) + ')')
+    .call(d3.axisBottom(x).tickSize(0).tickPadding(7).tickFormat(function (v, i) { return i % every === 0 ? mlab(v, '%b') : ''; }))
+    .call(function (g) { g.select('.domain').remove(); });
+  var tip = d3.select(el).append('div').attr('class', 'cd-tip');
+  series.forEach(function (s, i) {
+    svg.append('g').style('fill', dash.colors[i]).selectAll('rect').data(s).join('rect')
+      .attr('x', function (p) { return x(p.data.month); }).attr('width', x.bandwidth())
+      .attr('y', function (p) { return y(p[1]); }).attr('height', function (p) { return Math.max(0, y(p[0]) - y(p[1]) - 1); })
+      .on('pointermove', function (ev, p) {
+        var t = tot.get(p.data.month);
+        tipLines(tip, [mlab(p.data.month, '%B %Y') + ' · ' + s.key, 'Margin ' + fm(p.data[s.key], 2),
+          t ? 'Month total ' + fm(t.gross_margin_usd_m, 2) + ' · ' + fp(t.margin_pct) + ' of revenue' : '']);
+        placeTip(tip, el, ev);
+      })
+      .on('pointerleave', function () { tip.style('opacity', 0); });
+  });
+  if (x.bandwidth() >= 30) {
+    svg.selectAll('text.tot').data(table).join('text').attr('class', 'tot')
+      .attr('x', function (o) { return x(o.month) + x.bandwidth() / 2; })
+      .attr('y', function (o) { return y(d3.sum(COMMS, function (c) { return o[c]; })) - 5; })
+      .attr('text-anchor', 'middle').style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg-muted)').style('font-variant-numeric', 'tabular-nums')
+      .text(function (o) { return d3.sum(COMMS, function (c) { return o[c]; }).toFixed(1); });
+  }
+});
+
+dash.draw('var-chart', function (el) {
+  var e = dash.data('exposure'), b = dash.data('book');
+  var bm = new Map(b.data.map(function (r) { return [r.commodity, r]; }));
+  var rows = e.data.map(function (r) {
+    var k = bm.get(r.commodity);
+    return { label: r.commodity, value: r.var_util_pct, crit: r.var_util_pct >= DESK.alert, tip: [r.commodity, 'VaR ' + fm(+k.var_usd_m) + ' of ' + fm(+k.var_limit_usd_m) + ' limit'] };
+  });
+  hbar(el, rows, { max: Math.max(110, d3.max(rows, function (r) { return r.value; }) + 10), refs: [{ v: 100 }, { v: DESK.alert, dash: true }], aria: 'VaR used as a share of limit, by commodity' });
+});
+
+dash.draw('credit-chart', function (el) {
+  var c = dash.data('credit'), cp = dash.data('counterparties');
+  var m = new Map(cp.data.map(function (r) { return [r.counterparty, r]; }));
+  var rows = c.data.map(function (r) {
+    var k = m.get(r.counterparty);
+    return { label: r.counterparty, value: r.util_pct, crit: r.util_pct >= DESK.alert,
+      tip: [r.counterparty + ' · ' + r.rating + ' · ' + k.country, fm(+k.utilised_usd_m) + ' used of ' + fm(+k.limit_usd_m), 'Headroom ' + fm(r.headroom_usd_m)] };
+  });
+  hbar(el, rows, { max: 110, refs: [{ v: 100 }, { v: DESK.alert, dash: true }], aria: 'Credit line used as a share of limit, by counterparty' });
+});
+
+dash.draw('pos-rows', function (tb) {
+  tb.replaceChildren();
+  var b = dash.data('book'), e = dash.data('exposure');
+  var em = new Map(e.data.map(function (r) { return [r.commodity, r]; }));
+  b.data.forEach(function (r) {
+    var x = em.get(r.commodity) || {};
+    var tr = d3.select(tb).append('tr');
+    [[r.commodity, ''], [fn0(r.net_position) + ' ' + r.unit, 'num'], [fn0(r.hedged_position) + ' ' + r.unit, 'num'], [fp(x.hedge_ratio_pct), 'num'],
+     [fm(x.exposure_usd_m), 'num'], [fm(+r.mtm_usd_m), 'num ' + (+r.mtm_usd_m >= 0 ? 'cd-ok' : 'cd-bad')], [fm(+r.var_usd_m), 'num'],
+     [fm(+r.var_limit_usd_m), 'num'], [fp(x.var_util_pct), 'num' + (x.var_util_pct >= DESK.alert ? ' cd-bad' : '')]]
+      .forEach(function (c) { tr.append('td').attr('class', c[1]).text(c[0]); });
+  });
+});
+
+dash.draw('stress-rows', function (tb) {
+  tb.replaceChildren();
+  dash.data('stress').data.forEach(function (r) {
+    var tr = d3.select(tb).append('tr').attr('class', r.commodity === 'Total' ? 'tot' : null);
+    tr.append('td').text(r.commodity);
+    ['s_m10', 's_m5', 's_p5', 's_p10'].forEach(function (k) {
+      tr.append('td').attr('class', 'num ' + (r[k] > 0 ? 'cd-ok' : r[k] < 0 ? 'cd-bad' : '')).text(fm(r[k], 2));
+    });
+  });
+});
+
+dash.draw('deal-rows', function (tb) {
+  tb.replaceChildren();
+  var t = dash.data('trades'), s = dash.data('deal_scores');
+  var sc = new Map(s.data.map(function (r) { return [r.deal_id, r]; }));
+  var f = window.DEAL_FILTER || 'All', pill = { Approve: 'cd-ok', Review: 'cd-warn', Decline: 'cd-bad' };
+  t.data.forEach(function (r) {
+    var x = sc.get(r.deal_id) || {};
+    if (f !== 'All' && x.recommendation !== f) return;
+    var tr = d3.select(tb).append('tr');
+    [[r.deal_id, ''], [r.counterparty, ''], [r.commodity, ''], [r.direction, ''], [fn0(r.volume) + ' ' + r.unit, 'num'], [fn0(r.price), 'num'],
+     [(+r.margin_pct).toFixed(1) + '%', 'num' + (+r.margin_pct < DESK.floor ? ' cd-bad' : +r.margin_pct < DESK.hurdle ? ' cd-warn' : '')],
+     [r.tenor_days + 'd', 'num'], [fm(+r.notional_usd_m), 'num'], [fm(x.headroom_after_usd_m), 'num' + (x.headroom_after_usd_m < 0 ? ' cd-bad' : '')]]
+      .forEach(function (c) { tr.append('td').attr('class', c[1]).text(c[0]); });
+    tr.append('td').append('span').attr('class', 'cd-pill ' + (pill[x.recommendation] || '')).text(x.recommendation || '—');
+    tr.append('td').attr('class', 'cd-note').text(x.reason || '');
+  });
+});
+</script>
+
+<!-- Draw everything, and redraw charts when the window is resized -->
+<script>
+dashRunAll();
+var resizeTimer;
+window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(dashRunAll, 150); });
+</script>
+</body>
+</html>
