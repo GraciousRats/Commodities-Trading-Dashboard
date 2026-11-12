@@ -1,2 +1,2 @@
 # Commodities-Trading-Dashboard
-This dashboard brings decisions together, where prices are heading, where margin is made, how much risk the book carries, and which deals to approve in the current market. The total book vaule is marked at R126.2m.
+An interactive dashboard showing how data in the commodities trading sector is used to make commercial decisions and which deals to approve in the current market. It covers copper, iron ore, thermal coal and platinum. The total book value is marked at R126.2m.
